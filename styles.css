@@ -1,0 +1,33 @@
+.calendar {
+  background-color: rgba(255, 255, 255, 0.9);
+  border: 2px solid #8b5f9f;
+  border-radius: 10px;
+  padding: 20px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+}
+
+.seasons {
+  font-family: 'FantasyFont', cursive;
+  color: #4a2c2c;
+  background-image: url('path/to/your/seasons_background.png');
+  background-size: cover;
+  padding: 30px;
+}
+
+.layout {
+  margin: auto;
+  max-width: 1200px;
+  background-color: #f0f0f0;
+  border: 1px solid #d1d1d1;
+}
+
+body {
+  font-family: 'GameFont', sans-serif;
+  background-color: #e6e9ff;
+  color: #333;
+}
+
+h1, h2, h3 {
+  font-family: 'FantasyFont', cursive;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}

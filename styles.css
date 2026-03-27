@@ -1,33 +1,36 @@
 .calendar {
-  background-color: rgba(255, 255, 255, 0.9);
-  border: 2px solid #8b5f9f;
-  border-radius: 10px;
-  padding: 20px;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 10px;
+    margin: 20px;
 }
 
-.seasons {
-  font-family: 'FantasyFont', cursive;
-  color: #4a2c2c;
-  background-image: url('path/to/your/seasons_background.png');
-  background-size: cover;
-  padding: 30px;
+.calendar .day {
+    border: 1px solid #ccc;
+    padding: 10px;
+    text-align: center;
+    background-color: #f9f9f9;
+    border-radius: 5px;
 }
 
-.layout {
-  margin: auto;
-  max-width: 1200px;
-  background-color: #f0f0f0;
-  border: 1px solid #d1d1d1;
+.calendar .day header {
+    font-weight: bold;
+    margin-bottom: 5px;
 }
 
-body {
-  font-family: 'GameFont', sans-serif;
-  background-color: #e6e9ff;
-  color: #333;
+.calendar .day events {
+    display: flex;
+    flex-direction: column;
 }
 
-h1, h2, h3 {
-  font-family: 'FantasyFont', cursive;
-  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+.calendar .day event {
+    margin: 2px 0;
+    padding: 5px;
+    background-color: #e0e7ff;
+    border-radius: 3px;
+}
+
+.calendar .day:hover {
+    background-color: #f0f0f0;
+    cursor: pointer;
 }

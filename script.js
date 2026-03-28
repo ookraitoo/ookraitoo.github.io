@@ -1,193 +1,340 @@
-* { margin: 0; padding: 0; box-sizing: border-box; }
+const seasons = ["Spring", "Summer", "Autumn", "Winter"];
+const DAYS_PER_SEASON = 30;
+const STAGE_DURATIONS = [1, 5, 7, 14, 21, 28, 42, Infinity];
+const STAGE_NAMES = ["Baby", "Infant", "Toddler", "Child", "Teen", "Young Adult", "Adult", "Elder"];
 
-body {
-    font-family: "Comic Sans MS", "Chalkboard", "Segoe UI", sans-serif;
-    background: linear-gradient(#0a1f2e, #1a0f2e);
-    color: #f0f0ff;
-    line-height: 1.6;
+let currentDate = { year: 1, seasonIdx: 0, day: 15 };
+let currentKingdom = "Willow Creek";
+let events = JSON.parse(localStorage.getItem('simsEvents')) || [];
+let sims = JSON.parse(localStorage.getItem('simsData')) || [];
+
+if (sims.length === 0) {
+    sims = [
+        { id: 1, name: "Luna Voss", birthYear: 1, birthSeasonIdx: 0, birthDay: 10, kingdom: "Willow Creek" },
+        { id: 2, name: "Marcus Flex", birthYear: 1, birthSeasonIdx: 1, birthDay: 5,  kingdom: "San Myshuno" }
+    ];
+    saveSims();
 }
 
-header {
-    background: #0f2a3d;
-    padding: 1.2rem;
-    text-align: center;
-    border-bottom: 4px solid #21b96b;
-    box-shadow: 0 4px 15px rgba(33, 185, 107, 0.3);
+const kingdoms = ["Willow Creek", "San Myshuno", "Brindleton Bay", "Del Sol Valley", "Custom Kingdom 1"];
+
+function getTotalDays(d) {
+    return d.year * 120 + d.seasonIdx * 30 + d.day;
 }
 
-h1 {
-    font-size: 2.4rem;
-    color: #a6e329;
-    text-shadow: 0 0 10px #21b96b;
+function saveEvents() { localStorage.setItem('simsEvents', JSON.stringify(events)); }
+function saveSims() { localStorage.setItem('simsData', JSON.stringify(sims)); }
+
+function calculateAge(sim) {
+    const birth = { year: sim.birthYear, seasonIdx: sim.birthSeasonIdx, day: sim.birthDay };
+    const daysLived = Math.max(0, getTotalDays(currentDate) - getTotalDays(birth));
+    
+    let cumulative = 0;
+    for (let i = 0; i < STAGE_DURATIONS.length; i++) {
+        const stageEnd = cumulative + STAGE_DURATIONS[i];
+        if (daysLived < stageEnd) {
+            const daysInStage = daysLived - cumulative;
+            const daysToNext = STAGE_DURATIONS[i] === Infinity ? "∞" : STAGE_DURATIONS[i] - daysInStage;
+            return {
+                stage: STAGE_NAMES[i],
+                daysInStage: daysInStage + 1,
+                daysToNext: daysToNext
+            };
+        }
+        cumulative = stageEnd;
+    }
+    return { stage: "Elder", daysInStage: 0, daysToNext: "∞" };
 }
 
-.controls {
-    margin-top: 1rem;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    justify-content: center;
-    align-items: center;
+function renderKingdoms() {
+    const select = document.getElementById('kingdom-select');
+    select.innerHTML = kingdoms.map(k => `<option value="${k}" ${k === currentKingdom ? 'selected' : ''}>${k}</option>`).join('');
+    select.onchange = e => { currentKingdom = e.target.value; renderAll(); };
 }
 
-.controls button, select {
-    padding: 10px 16px;
-    background: #1e4a66;
-    color: #fff;
-    border: 2px solid #21b96b;
-    border-radius: 8px;
-    cursor: pointer;
-    font-weight: bold;
-    transition: all 0.2s;
+function renderSeasonHeader() {
+    const header = document.getElementById('season-year');
+    header.textContent = `${seasons[currentDate.seasonIdx]} — Year ${currentDate.year} (Day ${currentDate.day})`;
 }
 
-.controls button:hover {
-    background: #21b96b;
-    color: #000;
-    transform: scale(1.05);
+function renderCalendar() {
+    const calendar = document.getElementById('calendar');
+    calendar.innerHTML = '';
+
+    for (let day = 1; day <= DAYS_PER_SEASON; day++) {
+        const dayEvents = events.filter(e => 
+            e.year === currentDate.year &&
+            e.seasonIdx === currentDate.seasonIdx &&
+            e.day === day &&
+            e.kingdom === currentKingdom
+        );
+
+        let html = `<div onclick="showDayEvents(${day})">
+            <span class="day-number">Day ${day}</span>`;
+
+        dayEvents.slice(0, 3).forEach(ev => {
+            html += `<div class="event ${ev.type}">${ev.title}</div>`;
+        });
+        if (dayEvents.length > 3) html += `<div class="event custom">+${dayEvents.length-3} more</div>`;
+
+        html += `</div>`;
+        calendar.innerHTML += html;
+    }
+
+    renderUpcoming();
+    renderSims();
 }
 
-.advance-btn { background: #e94560 !important; border-color: #ff99cc; }
-.add-btn { background: #3cb9e1 !important; border-color: #a6e329; }
-
-.main {
-    display: flex;
-    max-width: 1400px;
-    margin: 25px auto;
-    gap: 25px;
-    padding: 0 25px;
+function prevSeason() { /* unchanged */ 
+    currentDate.seasonIdx--;
+    if (currentDate.seasonIdx < 0) {
+        currentDate.seasonIdx = 3;
+        currentDate.year = Math.max(1, currentDate.year - 1);
+    }
+    renderAll();
 }
 
-.calendar-grid {
-    flex: 3;
-    display: grid;
-    grid-template-columns: repeat(6, 1fr);
-    gap: 8px;
-    background: #0f2a3d;
-    padding: 12px;
-    border-radius: 16px;
-    box-shadow: 0 0 20px rgba(33, 185, 107, 0.2);
+function nextSeason() { /* unchanged */ 
+    currentDate.seasonIdx++;
+    if (currentDate.seasonIdx > 3) {
+        currentDate.seasonIdx = 0;
+        currentDate.year++;
+    }
+    renderAll();
 }
 
-.calendar-grid div {
-    background: #1e3a55;
-    min-height: 110px;
-    padding: 10px;
-    border-radius: 12px;
-    position: relative;
-    cursor: pointer;
-    transition: transform 0.2s;
+function advanceOneDay() {
+    currentDate.day++;
+    if (currentDate.day > DAYS_PER_SEASON) {
+        currentDate.day = 1;
+        currentDate.seasonIdx++;
+        if (currentDate.seasonIdx > 3) {
+            currentDate.seasonIdx = 0;
+            currentDate.year++;
+        }
+    }
+    renderAll();
 }
 
-.calendar-grid div:hover {
-    transform: scale(1.03);
+function renderAll() {
+    renderSeasonHeader();
+    renderCalendar();
 }
 
-.calendar-grid .day-number {
-    font-size: 1.3rem;
-    font-weight: bold;
-    color: #a6e329;
-    display: block;
-    margin-bottom: 6px;
+let currentEditingEvent = null;
+
+function addEvent() {
+    currentEditingEvent = null;
+    document.getElementById('modal-title').textContent = 'New Event';
+    const modal = document.getElementById('event-modal');
+    modal.style.display = 'flex';
+
+    const seasonSelect = document.getElementById('event-season');
+    seasonSelect.innerHTML = seasons.map((s, i) => `<option value="${i}" ${i === currentDate.seasonIdx ? 'selected' : ''}>${s}</option>`).join('');
+    
+    document.getElementById('event-day').value = currentDate.day;
+    document.getElementById('event-year').value = currentDate.year;
+    document.getElementById('event-title').value = '';
+    document.getElementById('event-type').value = 'custom';
+    document.getElementById('event-desc').value = '';
 }
 
-.event {
-    font-size: 0.9rem;
-    padding: 4px 8px;
-    margin: 4px 0;
-    border-radius: 6px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    font-weight: bold;
+function editEvent(eventId) {
+    currentEditingEvent = events.find(e => e.id === eventId);
+    if (!currentEditingEvent) return;
+
+    document.getElementById('modal-title').textContent = 'Edit Event';
+    const modal = document.getElementById('event-modal');
+    modal.style.display = 'flex';
+
+    const seasonSelect = document.getElementById('event-season');
+    seasonSelect.innerHTML = seasons.map((s, i) => `<option value="${i}" ${i === currentEditingEvent.seasonIdx ? 'selected' : ''}>${s}</option>`).join('');
+    
+    document.getElementById('event-day').value = currentEditingEvent.day;
+    document.getElementById('event-year').value = currentEditingEvent.year;
+    document.getElementById('event-title').value = currentEditingEvent.title;
+    document.getElementById('event-type').value = currentEditingEvent.type || 'custom';
+    document.getElementById('event-desc').value = currentEditingEvent.desc || '';
 }
 
-.birthday { background: #ffd700; color: #222; }
-.social { background: #3caad6; }
-.festival { background: #9b59b6; }
-.holiday { background: #e74c3c; }
-.custom { background: #21b96b; color: #000; }
+function saveEvent() {
+    const seasonIdx = parseInt(document.getElementById('event-season').value);
+    const day = parseInt(document.getElementById('event-day').value);
+    const year = parseInt(document.getElementById('event-year').value);
+    const title = document.getElementById('event-title').value.trim();
+    const type = document.getElementById('event-type').value;
+    const desc = document.getElementById('event-desc').value.trim();
 
-.sidebar {
-    flex: 1;
-    background: #1e3a55;
-    padding: 20px;
-    border-radius: 16px;
-    box-shadow: 0 0 20px rgba(33, 185, 107, 0.2);
+    if (!title || isNaN(day) || day < 1 || day > 30) {
+        return alert("Valid day (1-30) and title are required!");
+    }
+
+    if (currentEditingEvent) {
+        Object.assign(currentEditingEvent, { year, seasonIdx, day, title, type, desc });
+    } else {
+        events.push({ 
+            id: Date.now(), 
+            year, seasonIdx, day, title, type, desc, 
+            kingdom: currentKingdom 
+        });
+    }
+
+    saveEvents();
+    closeModal();
+    renderAll();
 }
 
-.sidebar h2 {
-    color: #a6e329;
-    margin-bottom: 12px;
-    text-shadow: 0 0 8px #21b96b;
+function deleteEvent(eventId) {
+    if (!confirm("Delete this event?")) return;
+    events = events.filter(e => e.id !== eventId);
+    saveEvents();
+    renderAll();
 }
 
-#upcoming-list li {
-    margin: 10px 0;
-    padding: 10px;
-    background: #0f2a3d;
-    border-radius: 8px;
+function closeModal() {
+    document.getElementById('event-modal').style.display = 'none';
+    currentEditingEvent = null;
 }
 
-#sims-list > div {
-    margin: 12px 0;
-    padding: 14px;
-    background: #0f2a3d;
-    border-radius: 12px;
-    border-left: 6px solid #21b96b;
+function showDayEvents(day) {
+    const dayEvents = events.filter(e => 
+        e.year === currentDate.year &&
+        e.seasonIdx === currentDate.seasonIdx &&
+        e.day === day &&
+        e.kingdom === currentKingdom
+    );
+
+    if (dayEvents.length === 0) {
+        document.getElementById('event-season').value = currentDate.seasonIdx;
+        document.getElementById('event-day').value = day;
+        document.getElementById('event-year').value = currentDate.year;
+        addEvent();
+        return;
+    }
+
+    let msg = `Events on Day ${day}:\n\n`;
+    dayEvents.forEach(e => {
+        msg += `• ${e.title} (${e.type})\n`;
+        msg += `  [Edit] [Delete]\n\n`; // placeholder - real buttons added below
+    });
+
+    // Better: show in a custom way or just use alert for now, but we improved upcoming list too
+    alert(msg); // You can expand this later into a better modal if you want
 }
 
-.plumbob {
-    display: inline-block;
-    color: #21b96b;
-    font-size: 1.4rem;
-    animation: plumbobPulse 2s infinite ease-in-out;
-    margin-right: 6px;
-    text-shadow: 0 0 8px #a6e329;
+function renderUpcoming() {
+    const list = document.getElementById('upcoming-list');
+    const nowTotal = getTotalDays(currentDate);
+
+    const upcoming = events
+        .filter(e => {
+            const eTotal = getTotalDays({ year: e.year, seasonIdx: e.seasonIdx, day: e.day });
+            return eTotal >= nowTotal && e.kingdom === currentKingdom;
+        })
+        .sort((a, b) => getTotalDays(a) - getTotalDays(b))
+        .slice(0, 10);
+
+    let html = '';
+    upcoming.forEach(e => {
+        const seasonName = seasons[e.seasonIdx];
+        html += `<li style="margin:6px 0;">
+            ${seasonName} Day ${e.day}, Year ${e.year} — <strong>${e.title}</strong> 
+            <button onclick="editEvent(${e.id}); event.stopImmediatePropagation();" style="margin-left:8px; font-size:0.8rem;">Edit</button>
+            <button onclick="deleteEvent(${e.id}); event.stopImmediatePropagation();" style="margin-left:4px; font-size:0.8rem; background:#e74c3c;">Delete</button>
+        </li>`;
+    });
+
+    list.innerHTML = html || '<li>No upcoming events</li>';
 }
 
-@keyframes plumbobPulse {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.2); }
+function renderSims() {
+    const container = document.getElementById('sims-list');
+    container.innerHTML = sims.map(sim => {
+        const age = calculateAge(sim);
+        return `
+            <div style="margin:10px 0; padding:12px; background:#1a1a2e; border-radius:6px;">
+                <strong>${sim.name}</strong><br>
+                <small>Born: ${seasons[sim.birthSeasonIdx]} ${sim.birthDay}, Year ${sim.birthYear}</small><br>
+                <span style="color:#e94560">Now: ${age.stage} (Day ${age.daysInStage} / ${age.daysToNext === '∞' ? '∞' : age.daysToNext + ' left'})</span>
+                <div style="margin-top:8px;">
+                    <button onclick="editSim(${sim.id})" style="font-size:0.85rem;">Edit</button>
+                    <button onclick="deleteSim(${sim.id})" style="font-size:0.85rem; background:#e74c3c; margin-left:6px;">Delete</button>
+                </div>
+            </div>
+        `;
+    }).join('');
 }
 
-.modal {
-    display: none;
-    position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(10, 15, 30, 0.95);
-    align-items: center;
-    justify-content: center;
-    z-index: 100;
+function editSim(simId) {
+    const sim = sims.find(s => s.id === simId);
+    if (!sim) return;
+
+    const name = prompt("New name?", sim.name);
+    if (name === null) return;
+
+    const birthStr = prompt("New birth date?\nFormat: Season Day Year\nExample: Spring 10 1", 
+        `${seasons[sim.birthSeasonIdx]} ${sim.birthDay} ${sim.birthYear}`);
+    
+    if (!birthStr) return;
+
+    const parts = birthStr.trim().split(/\s+/);
+    if (parts.length !== 3) return alert("Invalid format!");
+
+    const seasonName = parts[0];
+    const birthDay = parseInt(parts[1]);
+    const birthYear = parseInt(parts[2]);
+    const birthSeasonIdx = seasons.indexOf(seasonName);
+
+    if (birthSeasonIdx === -1 || isNaN(birthDay) || birthDay < 1 || birthDay > 30 || isNaN(birthYear)) {
+        return alert("Invalid birth date!");
+    }
+
+    sim.name = name;
+    sim.birthYear = birthYear;
+    sim.birthSeasonIdx = birthSeasonIdx;
+    sim.birthDay = birthDay;
+
+    saveSims();
+    renderSims();
 }
 
-.modal-content {
-    background: #1e3a55;
-    padding: 30px;
-    border-radius: 16px;
-    width: 90%;
-    max-width: 440px;
-    border: 3px solid #21b96b;
-    box-shadow: 0 0 30px rgba(33, 185, 107, 0.5);
+function deleteSim(simId) {
+    if (!confirm("Delete this Sim?")) return;
+    sims = sims.filter(s => s.id !== simId);
+    saveSims();
+    renderSims();
 }
 
-.modal input, .modal select, .modal textarea {
-    width: 100%;
-    padding: 12px;
-    margin: 10px 0;
-    background: #0f2a3d;
-    border: 2px solid #3caad6;
-    color: #fff;
-    border-radius: 8px;
-    font-family: inherit;
+function addSim() {
+    const name = prompt("Sim name?");
+    if (!name) return;
+
+    const birthStr = prompt("Birth date?\nFormat → Season Day Year\nExample: Spring 10 1");
+    const parts = birthStr ? birthStr.trim().split(/\s+/) : [];
+    if (parts.length !== 3) return alert("Use format: Season Day Year");
+
+    const seasonName = parts[0];
+    const birthDay = parseInt(parts[1]);
+    const birthYear = parseInt(parts[2]);
+    const birthSeasonIdx = seasons.indexOf(seasonName);
+
+    if (birthSeasonIdx === -1 || isNaN(birthDay) || birthDay < 1 || birthDay > 30 || isNaN(birthYear)) {
+        return alert("Invalid birth date! Example: Spring 10 1");
+    }
+
+    sims.push({
+        id: Date.now(),
+        name,
+        birthYear,
+        birthSeasonIdx,
+        birthDay,
+        kingdom: currentKingdom
+    });
+
+    saveSims();
+    renderSims();
 }
 
-.modal-buttons button {
-    padding: 12px 24px;
-    margin-right: 10px;
-    border-radius: 8px;
-    font-weight: bold;
-}
-
-.save-btn { background: #21b96b; color: #000; }
-.cancel-btn { background: #e74c3c; }
+// Initialize
+renderKingdoms();
+renderAll();
